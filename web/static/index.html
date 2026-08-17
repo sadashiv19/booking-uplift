@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uplift console — customer profile</title>
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("uplift-theme") || "dark");</script>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="eyebrow">Promotion Targeting Demo</div>
+      <h1>Uplift Modeling Console</h1>
+      <p>Four models, from naive to fully debiased + attention, predicting the causal effect of a promo on this synthetic customer.</p>
+    </div>
+    <div class="topbar-controls">
+      <nav class="screens">
+        <a href="/" class="active">Customer profile</a>
+        <a href="/results.html">Full results</a>
+      </nav>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode"></button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Customer profile</h2>
+
+        <div class="field">
+          <label>Loyalty tier</label>
+          <div class="segmented" id="loyalty-tier">
+            <button data-val="0">None</button>
+            <button data-val="1" class="active">Bronze</button>
+            <button data-val="2">Silver</button>
+            <button data-val="3">Gold</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Price sensitivity <span class="value" id="val-price">1.0</span></label>
+          <input type="range" id="price-sensitivity" min="-3" max="3" step="0.1" value="1.0">
+        </div>
+
+        <div class="field">
+          <label>Lead time (days) <span class="value" id="val-lead">16</span></label>
+          <input type="range" id="lead-time" min="1" max="90" step="1" value="16">
+        </div>
+
+        <div class="field">
+          <label>Past bookings <span class="value" id="val-bookings">2</span></label>
+          <input type="range" id="past-bookings" min="0" max="15" step="1" value="2">
+        </div>
+
+        <div class="field">
+          <label>Device</label>
+          <div class="toggle-row" id="device">
+            <button data-val="0" class="active">Desktop</button>
+            <button data-val="1">Mobile</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Length of stay (nights) <span class="value" id="val-los">3</span></label>
+          <input type="range" id="length-of-stay" min="1" max="14" step="1" value="3">
+        </div>
+
+        <div class="field">
+          <label>Property price / night (EUR) <span class="value" id="val-price-eur">110</span></label>
+          <input type="range" id="base-price" min="30" max="400" step="5" value="110">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Predicted uplift by model</h2>
+        <div class="metric-row" id="metric-cards">
+          <div class="loading">Loading models…</div>
+        </div>
+        <div class="bars" id="bars"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Targeting read</h2>
+        <div class="gauge-wrap">
+          <div class="gauge-track" id="gauge-track">
+            <div class="gauge-zones" id="gauge-zones"></div>
+            <div class="gauge-marker" id="gauge-marker" style="left:50%"></div>
+          </div>
+          <div class="gauge-labels">
+            <span>Sleeping dog</span><span>Lost cause</span><span>Sure thing</span><span>Persuadable</span>
+          </div>
+        </div>
+        <div class="callout" id="callout" style="--callout-color: var(--border-strong);">
+          Adjust the profile to see a live read.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    Predictions come from models trained on synthetic data — see the repo README for the full
+    methodology and an honest discussion of what this demo does and doesn't validate.
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const state = {
+  loyalty_tier: 1, price_sensitivity: 1.0, lead_time_days: 16, past_bookings: 2,
+  device_mobile: 0, length_of_stay: 3, base_price: 110,
+};
+
+function bindSegmented(id, key, onChange) {
+  const el = document.getElementById(id);
+  el.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      state[key] = Number(btn.dataset.val);
+      onChange();
+    });
+  });
+}
+
+function bindSlider(id, key, labelId, onChange, fmt = (v) => v) {
+  const el = document.getElementById(id);
+  const label = document.getElementById(labelId);
+  el.addEventListener("input", () => {
+    state[key] = Number(el.value);
+    label.textContent = fmt(state[key]);
+    onChange();
+  });
+}
+
+async function updatePrediction() {
+  const cardsEl = document.getElementById("metric-cards");
+  try {
+    const data = await fetchJSON("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    });
+
+    cardsEl.innerHTML = "";
+    Object.entries(data.predictions).forEach(([name, val]) => {
+      const card = document.createElement("div");
+      card.className = "metric-card";
+      card.style.setProperty("--card-color", MODEL_COLORS[name]);
+      card.innerHTML = `<div class="name">${name}</div><div class="val">${val >= 0 ? "+" : ""}${val.toFixed(1)}</div>`;
+      cardsEl.appendChild(card);
+    });
+
+    renderBars(document.getElementById("bars"), data.predictions);
+    renderGauge(document.getElementById("gauge-track"), document.getElementById("gauge-marker"),
+                data.predictions["Attention-DragonNet"]);
+
+    const callout = document.getElementById("callout");
+    callout.style.setProperty("--callout-color", QUADRANT_COLOR[data.quadrant]);
+    callout.innerHTML = `<strong>${QUADRANT_LABEL[data.quadrant]}.</strong> ${data.explanation}
+      <br>Estimated propensity a similar historical user would have received the promo:
+      <strong>${(data.propensity * 100).toFixed(0)}%</strong>`;
+  } catch (err) {
+    cardsEl.innerHTML = `<div class="loading">${err.message}</div>`;
+  }
+}
+
+const debouncedUpdate = debounce(updatePrediction, 150);
+
+bindSegmented("loyalty-tier", "loyalty_tier", debouncedUpdate);
+bindSegmented("device", "device_mobile", debouncedUpdate);
+bindSlider("price-sensitivity", "price_sensitivity", "val-price", debouncedUpdate, (v) => v.toFixed(1));
+bindSlider("lead-time", "lead_time_days", "val-lead", debouncedUpdate);
+bindSlider("past-bookings", "past_bookings", "val-bookings", debouncedUpdate);
+bindSlider("length-of-stay", "length_of_stay", "val-los", debouncedUpdate);
+bindSlider("base-price", "base_price", "val-price-eur", debouncedUpdate);
+
+updatePrediction();
+</script>
+</body>
+</html>

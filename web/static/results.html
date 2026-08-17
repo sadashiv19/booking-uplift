@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uplift console — full results</title>
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("uplift-theme") || "dark");</script>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="eyebrow">Promotion Targeting Demo</div>
+      <h1>Full results</h1>
+      <p>Research metric (PEHE, needs ground truth) and production metric (AUUC, observed data only) — both evaluated on the same held-out test set.</p>
+    </div>
+    <div class="topbar-controls">
+      <nav class="screens">
+        <a href="/">Customer profile</a>
+        <a href="/results.html" class="active">Full results</a>
+      </nav>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode"></button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Evaluation summary</h2>
+    <table id="results-table">
+      <thead>
+        <tr><th>Model</th><th style="text-align:right">PEHE ↓</th><th style="text-align:right">AUUC ↑</th><th style="text-align:right">% improvement vs. naive S</th></tr>
+      </thead>
+      <tbody><tr><td colspan="4" class="loading">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>Qini curves — production-relevant evaluation</h2>
+    <div id="qini-chart"><div class="loading">Loading…</div></div>
+    <div class="callout" style="--callout-color: var(--c-dragonnet); margin-top:16px;">
+      Ranks the test set by each model's predicted uplift, then traces the cumulative incremental
+      gain from targeting the top-k%. Uses only observed outcomes and treatment assignment — no
+      ground truth required, unlike PEHE. Both metrics agree on the same ranking.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Notebook figures</h2>
+    <div class="figure-grid">
+      <div class="figure-card">
+        <img src="/figures/01_confounding.png" alt="Confounding diagnostic plots">
+        <div class="cap">Confounding: who gets the promo isn't random.</div>
+      </div>
+      <div class="figure-card">
+        <img src="/figures/02_quadrants.png" alt="Uplift quadrant distribution and effect sizes">
+        <div class="cap">The four uplift quadrants in the simulated population.</div>
+      </div>
+      <div class="figure-card">
+        <img src="/figures/06_pehe_comparison.png" alt="PEHE bar chart across four models">
+        <div class="cap">PEHE across all four models — debiasing improves accuracy step by step.</div>
+      </div>
+      <div class="figure-card">
+        <img src="/figures/08_headline_comparison.png" alt="PEHE and AUUC side by side">
+        <div class="cap">Research metric and production metric, side by side.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    Synthetic data, calibrated to be qualitatively realistic (confounding direction, overlap,
+    non-trivial heterogeneity) rather than fit to Booking.com's actual figures, which aren't
+    publicly available. Full methodology and honesty notes in the repo README and
+    <code>docs/interview_prep_causal_uplift_modeling.md</code>.
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+async function loadResults() {
+  const tbody = document.querySelector("#results-table tbody");
+  try {
+    const rows = await fetchJSON("/api/results");
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${MODEL_COLORS[r.model]};margin-right:8px;"></span>${r.model}</td>
+        <td class="num">${r.pehe.toFixed(2)}</td>
+        <td class="num">${Math.round(r.auuc).toLocaleString()}</td>
+        <td class="num">${r.pehe_improvement_vs_naive_s.toFixed(1)}%</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" class="loading">${err.message}</td></tr>`;
+  }
+}
+
+async function loadQini() {
+  const container = document.getElementById("qini-chart");
+  try {
+    const data = await fetchJSON("/api/qini");
+    const series = [
+      { frac: data["S-learner (naive)"].frac, qini: data["S-learner (naive)"].qini, color: "var(--c-s)" },
+      { frac: data["T-learner (naive)"].frac, qini: data["T-learner (naive)"].qini, color: "var(--c-t)" },
+      { frac: data["T-learner + IPW"].frac, qini: data["T-learner + IPW"].qini, color: "var(--c-ipw)" },
+      { frac: data["Attention-DragonNet"].frac, qini: data["Attention-DragonNet"].qini, color: "var(--c-dragonnet)" },
+      { frac: data["Random targeting"].frac, qini: data["Random targeting"].qini, color: "var(--text-muted)", dashed: true },
+    ];
+    container.innerHTML = "";
+    const wrap = document.createElement("div");
+    container.appendChild(wrap);
+    renderLineChart(wrap, series);
+
+    const legend = document.createElement("div");
+    legend.style.cssText = "display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--text-secondary);";
+    const legendItems = [
+      ["S-learner (naive)", "var(--c-s)"], ["T-learner (naive)", "var(--c-t)"],
+      ["T-learner + IPW", "var(--c-ipw)"], ["Attention-DragonNet", "var(--c-dragonnet)"],
+      ["Random targeting", "var(--text-muted)"],
+    ];
+    legend.innerHTML = legendItems.map(([name, color]) =>
+      `<span><span style="display:inline-block;width:10px;height:2px;background:${color};margin-right:6px;vertical-align:middle;"></span>${name}</span>`
+    ).join("");
+    container.appendChild(legend);
+  } catch (err) {
+    container.innerHTML = `<div class="loading">${err.message}</div>`;
+  }
+}
+
+loadResults();
+loadQini();
+</script>
+</body>
+</html>
