@@ -1,0 +1,13 @@
+numpy
+pandas
+scikit-learn
+lightgbm
+torch
+matplotlib
+seaborn
+flask
+joblib
+pyarrow
+nbformat
+nbconvert
+ipykernel
