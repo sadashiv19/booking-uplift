@@ -1,0 +1,18 @@
+[
+  {
+    "model":"S-learner (naive)",
+    "pehe":12.6204755801
+  },
+  {
+    "model":"T-learner (naive)",
+    "pehe":11.517443421
+  },
+  {
+    "model":"T-learner + IPW",
+    "pehe":11.3980815941
+  },
+  {
+    "model":"Attention-DragonNet",
+    "pehe":10.7613730286
+  }
+]

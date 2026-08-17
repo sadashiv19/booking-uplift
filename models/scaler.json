@@ -1,0 +1,18 @@
+{
+  "means": {
+    "price_sensitivity": 0.014972817568232237,
+    "lead_time_days": 15.904907509173924,
+    "past_bookings": 2.6671428571428573,
+    "length_of_stay": 3.4985,
+    "base_price": 107.87215951513572
+  },
+  "stds": {
+    "price_sensitivity": 1.0033411095196225,
+    "lead_time_days": 11.372126844943896,
+    "past_bookings": 1.8598837406550963,
+    "length_of_stay": 1.5795673904899308,
+    "base_price": 44.89226027618039
+  },
+  "y_mean": 42.93344800246248,
+  "y_std": 28.44052459617414
+}
