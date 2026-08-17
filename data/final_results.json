@@ -1,0 +1,26 @@
+[
+  {
+    "model":"S-learner (naive)",
+    "pehe":12.6204755801,
+    "auuc":11134.5971285467,
+    "pehe_improvement_vs_naive_s":0.0
+  },
+  {
+    "model":"T-learner (naive)",
+    "pehe":11.517443421,
+    "auuc":11587.0145171785,
+    "pehe_improvement_vs_naive_s":8.7400205491
+  },
+  {
+    "model":"T-learner + IPW",
+    "pehe":11.3980815941,
+    "auuc":11710.9873608391,
+    "pehe_improvement_vs_naive_s":9.685799701
+  },
+  {
+    "model":"Attention-DragonNet",
+    "pehe":10.7613730286,
+    "auuc":12714.4540095655,
+    "pehe_improvement_vs_naive_s":14.7308438553
+  }
+]
